@@ -1,0 +1,82 @@
+groups:
+  - name: alertas_conectividad_servidores
+    rules:
+      - alert: ServidorInalcanzable
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: fatal
+        annotations:
+          summary: "🔴 Caída de red en {{ $labels.servidor}}"
+          description: "El servidor {{ $labels.servidor }} (IP: {{ $labels.instance }}) no responde al ping desde hace más de 2 minutos."
+
+      - alert: ServidorSinMetricas
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "🟡 Servidor {{ $labels.datos }} Offline"
+          description: "No se reciben métricas de {{ $labels.datos }} ({{ $labels.instance }}). El exportador podría estar apagado."
+
+  - name: Alertas_Infraestructura_Critica
+    rules:
+      # 1. CPU Saturado (>90% por 5 min)
+      - alert: CPUSaturado
+        expr: instance:cpu_usage:percent > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🔥 CPU Crítico en {{ $labels.datos }}"
+          description: "El procesador ha estado sobre el 90% por más de 5 minutos."
+
+      # 2. RAM Agotándose (>90% por 5 min)
+      - alert: RAMSaturada
+        expr: instance:ram_usage:percent > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🧠 RAM al límite en {{ $labels.datos }}"
+          description: "El servidor está usando más del 90% de su memoria RAM."
+
+      # 3. Disco C: Llenándose (>90% por 10 min)
+      - alert: DiscoCasiLleno
+        expr: instance:disk_root_usage:percent > 90
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "💽 Disco casi lleno en {{ $labels.datos }}"
+          description: "El Disco C: superó el 90% de su capacidad. Liberar espacio."
+
+      # 4. Latencia de Red Alta (>150ms por 3 min)
+      - alert: RedLenta
+        expr: avg_over_time(probe_icmp_duration_seconds[5m]) > 0.15
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "🐌 Latencia alta en {{ $labels.servidor }}"
+          description: "El tiempo de respuesta (Ping > 150ms) es muy elevado en los últimos 3 minutos."
+          
+      # 5. Pérdida de Paquetes (>10% de pérdida por 5 min)
+      - alert: PerdidaDePaquetes
+        expr: (1 - avg_over_time(probe_success[5m])) * 100 > 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "📦 Pérdida de paquetes en {{ $labels.servidor }}"
+          description: "La conexión con {{ $labels.servidor }} presenta más de un 10% de pérdida de paquetes en los últimos 5 minutos."
+
+      # 6. Saturación de CPU (Cuello de botella en la Cola)
+      - alert: SaturacionColaCPU
+        expr: instance:processor_queue:length > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "🚦 Saturación de CPU (Fila alta) en {{ $labels.datos }}"
+          description: "El procesador de {{ $labels.datos }} no da abasto. Hay más de 10 procesos en cola esperando ser atendidos de forma sostenida."

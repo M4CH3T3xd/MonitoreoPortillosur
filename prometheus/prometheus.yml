@@ -1,0 +1,96 @@
+# /etc/prometheus/prometheus.yml
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# ==========================================================
+# --- ALERTMANAGER CONFIG (AQUÍ VAN LAS ALERTAS) ---
+# ==========================================================
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['10.56.6.112:9093']
+
+rule_files:
+  - "alert_rules.yml" # <-- Aquí Prometheus buscará las reglas de alerta
+  - "recording_rules.yml" # Básicamente: Linux o Windows?
+# ==========================================================
+
+scrape_configs:
+  # --- PINGS (BLACKBOX EXPORTER) ---
+  - job_name: "blackbox-execute"
+    metrics_path: /probe
+    params:
+      module: [ping_icmp]
+    static_configs:
+      # --- PING SUCURSALES ---
+      - targets: ['10.56.2.1']
+        labels: { sucursal: "O'Higgins 326" }
+      - targets: ['10.56.3.1']
+        labels: { sucursal: "Santa Margarita 1051" }
+      - targets: ['10.56.4.1']
+        labels: { sucursal: "O'Higgins 025" }
+      - targets: ['10.56.5.1']
+        labels: { sucursal: "Av. Pilpilco 560" }
+      - targets: ['10.56.6.1']
+        labels: { sucursal: "San Carlos 1054" }
+      - targets: ['10.56.7.1']
+        labels: { sucursal: "Rene Soriano 2613" }
+      - targets: ['10.56.8.1']
+        labels: { sucursal: "Leon Gallo 0835" }
+      - targets: ['10.56.9.1']
+        labels: { sucursal: "San Martin 01040" }
+      - targets: ['10.56.10.1']
+        labels: { sucursal: "Av. Paicavi 1200" }
+      - targets: ['10.56.12.1']
+        labels: { sucursal: "Prieto Sur 990" }
+
+      # --- PING SERVIDORES ---
+      - targets: ['10.10.70.112']
+        labels: { servidor: "Server de desarrollo" }
+      - targets: ['10.10.70.36']
+        labels: { servidor: "Active Directory" }
+      - targets: ['10.10.70.14']
+        labels: { servidor: "Servidor SAP" }
+      - targets: ['10.10.70.69'] 
+        labels: { servidor: "Servidor Toyota" }
+      - targets: ['10.10.70.7']
+        labels: { servidor: "Repo. BMW" }
+
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: '10.56.6.113:9115' # IP del Blackbox Exporter
+
+  # --- PROMETHEUS INTERNAL ---
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          app: "prometheus"
+
+  # --- MÉTRICAS DE SERVIDORES (WINDOWS/NODE EXPORTER) ---
+  - job_name: "resources_data"
+    static_configs:
+      - targets: ["10.10.70.36:9182"]
+        labels: { datos: "Active Directory" }
+   #   - targets: ["10.10.70.14:9182"]
+   #     labels: { datos: "Servidor SAP" } # Este es el más peligroso D:
+   #   - targets: ["10.10.70.69:9100"]
+   #     labels: { datos: "Servidor Toyota" }
+      - targets: ["10.10.70.7:9182"]
+        labels: { datos: "Repo. BMW" }
+      - targets: ["10.10.70.112:9100"]
+        labels: { datos: "Server de desarrollo" }
+
+# ==========================================================
+  # --- MÉTRICAS DE NEGOCIO (BOT PYTHON TOYOTA) ---
+  # ==========================================================
+  - job_name: "toyota_integracion"
+    static_configs:
+      - targets: ["10.56.6.35:8000"]
+        labels: { app: "bot_toyota" }
