@@ -13,7 +13,11 @@ receivers:
         parse_mode: 'HTML'
         message: |-
           {{ range .Alerts }}
-          {{ if eq .Status "firing" }}🔴 <b>FALLA ACTIVA</b>{{ else }}🟢 <b>RECUPERADO</b>{{ end }}
+          
+          {{ if eq .Status "firing" }}🚨 <b>FALLA ACTIVA</b>{{ else }}✅ <b>RECUPERADO</b>{{ end }}
+          
+          <b>{{ .Annotations.summary }}</b>
+
           <b>Alerta:</b> {{ .Labels.alertname }}
           <b>Equipo:</b> {{ if .Labels.datos }}{{ .Labels.datos }}{{ else }}{{ .Labels.instance }}{{ end }}
           <b>Detalle:</b> {{ .Annotations.description }}
