@@ -1,0 +1,30 @@
+groups:
+  - name: Estado_Servicio_Toyota
+    rules:
+      - alert: ToyotaServicioCaido
+        expr: up{area="negocio"} == 0
+        for: 1m
+        labels:
+          severity: fatal
+          area: negocio
+        annotations:
+          summary: "🚨 SERVICIO TOYOTA CAÍDO"
+          description: "El exportador de Toyota no responde. El servicio está apagado."
+
+      - alert: ErrorIntegracionSAP
+        expr: toyota_atascados_sap > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "🛑 ERROR SAP: Notas de Venta Atascadas"
+          description: "Existen {{ $value }} Notas de Venta que no han logrado cruzar a facturación en SAP."
+
+      - alert: RetrasoGestionComercial
+        expr: toyota_sin_notaventa > 10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "⚠️ RETRASO COMERCIAL: Sin Nota de Venta"
+          description: "Existen {{ $value }} oportunidades pendientes de gestión en el aplicativo."

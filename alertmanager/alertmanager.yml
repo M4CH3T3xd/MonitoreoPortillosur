@@ -1,25 +1,44 @@
+global:
+  resolve_timeout: 5m
+
 route:
-  group_by: ['alertname', 'datos', 'instance']
-  group_wait: 30s
-  group_interval: 5m
-  repeat_interval: 1h # Te volverá a avisar cada 1 hora si no lo arreglas
+  group_by: ['alertname']
+  # Bajamos el tiempo de espera a 10 segundos para que sea inmediato
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 1h
+  
+  # RUTA POR DEFECTO: Todo lo de infraestructura (CPU, Pings, RAM) va a TI
   receiver: 'grupo-telegram-ti'
+  
+  # RUTAS ESPECÍFICAS: TODO lo de Toyota va al chat de Negocio
+  routes:
+    - matchers:
+        - alertname=~"ErrorIntegracionSAP|RetrasoGestionComercial|ToyotaServicioCaido"
+      receiver: 'grupo-telegram-negocio'
 
 receivers:
   - name: 'grupo-telegram-ti'
     telegram_configs:
-      - bot_token: ""  # Tu token Aqui
-        chat_id:       # Tu id de chat Aqui
+      - bot_token: 'TELEGRAM_BOT_TOKEN'
+        chat_id: TELEGRAM_CHAT_ID
         parse_mode: 'HTML'
         message: |-
-          {{ range .Alerts }}
-          
-          {{ if eq .Status "firing" }}🚨 <b>FALLA ACTIVA</b>{{ else }}✅ <b>RECUPERADO</b>{{ end }}
-          
+          {{ range .Alerts }} {{ if eq .Status "firing" }}🚨 <b>FALLA DE INFRAESTRUCTURA</b>{{ else }}✅ <b>RECUPERADO</b>{{ end }}
           <b>{{ .Annotations.summary }}</b>
-
           <b>Alerta:</b> {{ .Labels.alertname }}
-          <b>Equipo:</b> {{ if .Labels.datos }}{{ .Labels.datos }}{{ else }}{{ .Labels.instance }}{{ end }}
+          <b>Detalle:</b> {{ .Annotations.description }}
+          ---
+          {{ end }}
+
+  - name: 'grupo-telegram-negocio'
+    telegram_configs:
+      - bot_token: 'TELEGRAM_BOT_TOKEN'
+        chat_id: TELEGRAM_CHAT_ID
+        parse_mode: 'HTML'
+        message: |-
+          {{ range .Alerts }} {{ if eq .Status "firing" }}⚠️ <b>ALERTA TOYOTA</b>{{ else }}✅ <b>SITUACIÓN NORMALIZADA</b>{{ end }}
+          <b>{{ .Annotations.summary }}</b>
           <b>Detalle:</b> {{ .Annotations.description }}
           ---
           {{ end }}

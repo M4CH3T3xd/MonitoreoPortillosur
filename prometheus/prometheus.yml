@@ -13,8 +13,7 @@ alerting:
         - targets: ['10.56.6.112:9093']
 
 rule_files:
-  - "alert_rules.yml" # <-- Aquí Prometheus buscará las reglas de alerta
-  - "recording_rules.yml" # Básicamente: Linux o Windows?
+  - "rules/*.yml"
 # ==========================================================
 
 scrape_configs:
@@ -26,37 +25,37 @@ scrape_configs:
     static_configs:
       # --- PING SUCURSALES ---
       - targets: ['10.56.2.1']
-        labels: { sucursal: "O'Higgins 326" }
+        labels: { sucursal: "O'Higgins 326", area: "infraestructura" }
       - targets: ['10.56.3.1']
-        labels: { sucursal: "Santa Margarita 1051" }
+        labels: { sucursal: "Santa Margarita 1051", area: "infraestructura" }
       - targets: ['10.56.4.1']
-        labels: { sucursal: "O'Higgins 025" }
+        labels: { sucursal: "O'Higgins 025", area: "infraestructura" }
       - targets: ['10.56.5.1']
-        labels: { sucursal: "Av. Pilpilco 560" }
+        labels: { sucursal: "Av. Pilpilco 560", area: "infraestructura" }
       - targets: ['10.56.6.1']
-        labels: { sucursal: "San Carlos 1054" }
+        labels: { sucursal: "San Carlos 1054", area: "infraestructura" }
       - targets: ['10.56.7.1']
-        labels: { sucursal: "Rene Soriano 2613" }
+        labels: { sucursal: "Rene Soriano 2613", area: "infraestructura" }
       - targets: ['10.56.8.1']
-        labels: { sucursal: "Leon Gallo 0835" }
+        labels: { sucursal: "Leon Gallo 0835", area: "infraestructura" }
       - targets: ['10.56.9.1']
-        labels: { sucursal: "San Martin 01040" }
+        labels: { sucursal: "San Martin 01040", area: "infraestructura" }
       - targets: ['10.56.10.1']
-        labels: { sucursal: "Av. Paicavi 1200" }
+        labels: { sucursal: "Av. Paicavi 1200", area: "infraestructura" }
       - targets: ['10.56.12.1']
-        labels: { sucursal: "Prieto Sur 990" }
+        labels: { sucursal: "Prieto Sur 990", area: "infraestructura" }
 
       # --- PING SERVIDORES ---
       - targets: ['10.10.70.112']
-        labels: { servidor: "Server de desarrollo" }
+        labels: { servidor: "Server Dev Ubuntu", area: "infraestructura" }
       - targets: ['10.10.70.36']
-        labels: { servidor: "Active Directory" }
+        labels: { servidor: "Active Directory", area: "infraestructura" }
       - targets: ['10.10.70.14']
-        labels: { servidor: "Servidor SAP" }
+        labels: { servidor: "Servidor SAP", area: "infraestructura" }
       - targets: ['10.10.70.69'] 
-        labels: { servidor: "Servidor Toyota" }
+        labels: { servidor: "Servidor Toyota", area: "infraestructura" }
       - targets: ['10.10.70.7']
-        labels: { servidor: "Repo. BMW" }
+        labels: { servidor: "Repo. BMW", area: "infraestructura" }
 
     relabel_configs:
       - source_labels: [__address__]
@@ -72,25 +71,26 @@ scrape_configs:
       - targets: ["localhost:9090"]
         labels:
           app: "prometheus"
+          area: "infraestructura" # <-- Se lo agregué por buena práctica
 
   # --- MÉTRICAS DE SERVIDORES (WINDOWS/NODE EXPORTER) ---
   - job_name: "resources_data"
     static_configs:
       - targets: ["10.10.70.36:9182"]
-        labels: { datos: "Active Directory" }
+        labels: { datos: "Active Directory", area: "infraestructura" } 
    #   - targets: ["10.10.70.14:9182"]
-   #     labels: { datos: "Servidor SAP" } # Este es el más peligroso D:
+   #     labels: { datos: "Servidor SAP", area: "infraestructura" }
    #   - targets: ["10.10.70.69:9100"]
-   #     labels: { datos: "Servidor Toyota" }
+   #     labels: { datos: "Servidor Toyota", area: "infraestructura" }
       - targets: ["10.10.70.7:9182"]
-        labels: { datos: "Repo. BMW" }
+        labels: { datos: "Repo. BMW", area: "infraestructura" } 
       - targets: ["10.10.70.112:9100"]
-        labels: { datos: "Server de desarrollo" }
+        labels: { datos: "Server Dev Ubuntu", area: "infraestructura" }
 
 # ==========================================================
-  # --- MÉTRICAS DE NEGOCIO (BOT PYTHON TOYOTA) ---
-  # ==========================================================
-  - job_name: "toyota_integracion"
+# --- MÉTRICAS DE NEGOCIO (BOT PYTHON TOYOTA) ---
+# ==========================================================
+  - job_name: "toyota_integracion" # <-- CORREGIDA LA ALINEACIÓN
     static_configs:
-      - targets: ["10.56.6.35:8000"]
-        labels: { app: "bot_toyota" }
+      - targets: ["10.56.6.49:8000"]
+        labels: { app: "bot_toyota", area: "negocio" }

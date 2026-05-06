@@ -1,0 +1,229 @@
+groups:
+  - name: unificacion_hibrida
+    interval: 15s
+    rules:
+      # ==========================================================
+      # ROW 1: INVENTARIO Y ESTADO GENERAL
+      # ==========================================================
+      - record: instance:info:hostname
+        expr: >
+          label_replace(windows_os_hostname, "sys_name", "$1", "hostname", "(.*)")
+          or
+          label_replace(node_uname_info, "sys_name", "$1", "nodename", "(.*)")
+
+      - record: instance:info:os
+        expr: >
+          label_replace(windows_os_info, "sys_os", "$1", "product", "(.*)")
+          or
+          label_replace(node_os_info, "sys_os", "$1", "pretty_name", "(.*)")
+
+      - record: instance:uptime:seconds
+        expr: (time() - windows_system_boot_time_timestamp) or (time() - node_boot_time_seconds)
+
+      - record: instance:info:kernel
+        expr: >
+          label_replace(windows_os_info, "sys_kernel", "$1", "version", "(.*)")
+          or
+          label_replace(node_uname_info, "sys_kernel", "$1", "release", "(.*)")
+
+      # ==========================================================
+      # ROW 2: CPU Y PROCESAMIENTO
+      # ==========================================================
+      - record: instance:cpu_cores:count
+        expr: count by (datos) (windows_cpu_time_total{mode="idle"}) or count by (datos) (node_cpu_seconds_total{mode="idle"})
+
+      - record: instance:cpu_usage:percent
+        expr: >
+          (100 - (avg by (datos) (rate(windows_cpu_time_total{mode="idle"}[5m])) * 100))
+          or
+          (100 - (avg by (datos) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100))
+
+      - record: instance:cpu_core_load:percent
+        expr: >
+          (100 - (rate(windows_cpu_time_total{mode="idle"}[5m]) * 100))
+          or
+          label_replace((100 - (rate(node_cpu_seconds_total{mode="idle"}[5m]) * 100)), "core", "$1", "cpu", "(.*)")
+
+      - record: instance:cpu_user:percent
+        expr: >
+          (avg by (datos) (rate(windows_cpu_time_total{mode="user"}[5m])) * 100)
+          or
+          (avg by (datos) (rate(node_cpu_seconds_total{mode="user"}[5m])) * 100)
+
+      - record: instance:cpu_kernel:percent
+        expr: >
+          (avg by (datos) (rate(windows_cpu_time_total{mode="privileged"}[5m])) * 100)
+          or
+          (avg by (datos) (rate(node_cpu_seconds_total{mode="system"}[5m])) * 100)
+
+      - record: instance:cpu_frequency:hertz
+        expr: >
+          (avg by (datos) (windows_cpu_core_frequency_mhz) * 1000000)
+          or
+          (avg by (datos) (node_cpu_frequency_hertz))
+          or
+          (avg by (datos) (node_cpu_scaling_frequency_hertz))
+
+      - record: instance:cpu_frequency_max:hertz
+        expr: >
+          (avg by (datos) (windows_cpu_core_frequency_mhz) * 1000000)
+          or
+          (avg by (datos) (node_cpu_frequency_max_hertz))
+
+      # ==========================================================
+      # ROW 3: RAM Y MEMORIA
+      # ==========================================================
+      - record: instance:ram_total:bytes
+        expr: windows_memory_physical_total_bytes or node_memory_MemTotal_bytes
+
+      - record: instance:ram_usage:percent
+        expr: >
+          (100 - 100 * (windows_memory_available_bytes / windows_memory_physical_total_bytes))
+          or
+          (100 - 100 * (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))
+
+      - record: instance:memory_available:bytes
+        expr: sum by (datos) (windows_memory_available_bytes) or sum by (datos) (node_memory_MemAvailable_bytes)
+
+      - record: instance:memory_page_faults:rate5m
+        expr: rate(windows_memory_page_faults_total[5m]) or rate(node_vmstat_pgfault[5m])
+
+      - record: instance:root_mount_size:bytes
+        expr: >
+          max by (datos) (windows_logical_disk_size_bytes{volume="C:"})
+          or
+          max by (datos) (node_filesystem_size_bytes{mountpoint="/"})
+      
+      - record: instance:memory_swap_usage:percent
+        expr: >
+          (100 - 100 * (windows_os_paging_free_bytes / windows_os_paging_limit_bytes))
+          or
+          (100 - 100 * (node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes))
+
+      - record: instance:memory_leak_indicator:bytes
+        expr: >
+          windows_memory_pool_nonpaged_bytes
+          or
+          node_memory_Slab_bytes
+
+      # ==========================================================
+      # ROW 4: DISCO Y ALMACENAMIENTO
+      # ==========================================================
+      - record: instance:disk_root_usage:percent
+        expr: >
+          (100 - 100 * (windows_logical_disk_free_bytes{volume="C:"} / windows_logical_disk_size_bytes{volume="C:"}))
+          or
+          label_replace((100 - 100 * (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})), "volume", "/", "", "")
+
+      - record: instance:disk_ops_total:rate5m
+        expr: >
+          (rate(windows_logical_disk_reads_total{volume="C:"}[5m]) + rate(windows_logical_disk_writes_total{volume="C:"}[5m]))
+          or
+          sum by (datos) (rate(node_disk_reads_completed_total{device!~"loop.*"}[5m]) + rate(node_disk_writes_completed_total{device!~"loop.*"}[5m]))
+
+      - record: instance:disk_latency_total:seconds_rate5m
+        expr: >
+          rate(windows_logical_disk_read_latency_seconds_total{volume="C:"}[5m]) + rate(windows_logical_disk_write_latency_seconds_total{volume="C:"}[5m])
+          or
+          sum by (datos) (rate(node_disk_read_time_seconds_total{device!~"loop.*"}[5m]) + rate(node_disk_write_time_seconds_total{device!~"loop.*"}[5m]))
+
+      # IOPS Lectura
+      - record: instance:disk_reads:rate5m
+        expr: >
+          rate(windows_logical_disk_reads_total{volume="C:"}[5m])
+          or
+          sum by (datos) (rate(node_disk_reads_completed_total{device!~"loop.*|md.*"}[5m]))
+
+      # IOPS Escritura
+      - record: instance:disk_writes:rate5m
+        expr: >
+          rate(windows_logical_disk_writes_total{volume="C:"}[5m])
+          or
+          sum by (datos) (rate(node_disk_writes_completed_total{device!~"loop.*|md.*"}[5m]))
+
+      # Latencia Lectura
+      - record: instance:disk_read_latency:rate5m
+        expr: >
+          rate(windows_logical_disk_read_latency_seconds_total{volume="C:"}[5m])
+          or
+          sum by (datos) (rate(node_disk_read_time_seconds_total{device!~"loop.*|md.*"}[5m]))
+
+      # Latencia Escritura
+      - record: instance:disk_write_latency:rate5m
+        expr: >
+          rate(windows_logical_disk_write_latency_seconds_total{volume="C:"}[5m])
+          or
+          sum by (datos) (rate(node_disk_write_time_seconds_total{device!~"loop.*|md.*"}[5m]))
+
+      # ==========================================================
+      # ROW 5: RED Y TRÁFICO (Precisión por Interfaz)
+      # ==========================================================
+      
+      # Bajada (RX)
+      - record: instance:network_receive_bps:rate5m
+        expr: >
+          (rate(windows_net_bytes_received_total{nic!~".*Loopback.*|.*isatap.*"}[5m]) * 8)
+          or
+          label_replace(rate(node_network_receive_bytes_total{device!~"lo|veth.*|br-.*|docker.*|lxc.*"}[5m]) * 8, "nic", "$1", "device", "(.*)")
+
+      # Subida (TX)
+      - record: instance:network_transmit_bps:rate5m
+        expr: >
+          (rate(windows_net_bytes_sent_total{nic!~".*Loopback.*|.*isatap.*"}[5m]) * 8)
+          or
+          label_replace(rate(node_network_transmit_bytes_total{device!~"lo|veth.*|br-.*|docker.*|lxc.*"}[5m]) * 8, "nic", "$1", "device", "(.*)")
+
+      # Errores y Descartes
+      - record: instance:network_errors:rate5m
+        expr: >
+          rate(windows_net_packets_received_errors_total{nic!~".*Loopback.*|.*isatap.*"}[5m])
+          or
+          label_replace(rate(node_network_receive_errs_total{device!~"lo|veth.*|br-.*|docker.*|lxc.*"}[5m]), "nic", "$1", "device", "(.*)")
+
+      - record: instance:network_drops:rate5m
+        expr: >
+          (rate(windows_net_packets_received_discarded_total{nic!~".*Loopback.*|.*isatap.*"}[5m]) + rate(windows_net_packets_outbound_discarded_total{nic!~".*Loopback.*|.*isatap.*"}[5m]))
+          or
+          label_replace(rate(node_network_receive_drop_total{device!~"lo|veth.*|br-.*|docker.*|lxc.*"}[5m]) + rate(node_network_transmit_drop_total{device!~"lo|veth.*|br-.*|docker.*|lxc.*"}[5m]), "nic", "$1", "device", "(.*)")
+      # ==========================================================
+      # ROW 6: SALUD DEL SISTEMA Y PROCESOS
+      # ==========================================================
+      - record: instance:active_processes:count
+        expr: >
+          sum by (datos) (windows_system_processes)
+          or
+          sum by (datos) (node_procs_running)
+
+      - record: instance:processor_queue:length
+        expr: >
+          windows_system_processor_queue_length
+          or
+          node_load1
+
+      - record: instance:threads:count
+        expr: >
+          sum by (datos) (windows_system_threads)
+          or
+          (sum by (datos) (node_procs_running) + sum by (datos) (node_procs_blocked))
+
+      - record: instance:syscalls:rate5m
+        expr: >
+          avg by (datos) (rate(windows_system_system_calls_total[5m]))
+          or
+          avg by (datos) (rate(node_forks_total[5m]))
+
+      - record: instance:context_switches:rate5m
+        expr: rate(windows_system_context_switches_total[5m]) or rate(node_context_switches_total[5m])
+
+      - record: instance:temperature:celsius
+        expr: >
+          label_replace(windows_thermalzone_temperature_celsius, "sensor_name", "$1", "name", "(.*)")
+          or
+          label_replace((node_hwmon_temp_celsius * on(chip, sensor) group_left(label) node_hwmon_sensor_label), "sensor_name", "$1", "label", "(.*)")
+
+      # Cola de Salida de Red (Network Output Queue)
+      - record: instance:network_output_queue:length
+        expr: >
+          windows_net_output_queue_length_packets{nic!~".*Loopback.*|.*isatap.*"}
+          or
+          label_replace(rate(node_network_transmit_drop_total{device!~"lo|veth.*|br-.*|docker.*|lxc.*"}[5m]), "nic", "$1", "device", "(.*)")
