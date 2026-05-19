@@ -2,43 +2,75 @@ global:
   resolve_timeout: 5m
 
 route:
-  group_by: ['alertname']
-  # Bajamos el tiempo de espera a 10 segundos para que sea inmediato
-  group_wait: 10s
-  group_interval: 1m
-  repeat_interval: 1h
-  
-  # RUTA POR DEFECTO: Todo lo de infraestructura (CPU, Pings, RAM) va a TI
   receiver: 'grupo-telegram-ti'
-  
-  # RUTAS ESPECÍFICAS: TODO lo de Toyota va al chat de Negocio
+  group_by: ['alertname', 'instance']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
   routes:
     - matchers:
         - alertname=~"ErrorIntegracionSAP|RetrasoGestionComercial|ToyotaServicioCaido"
       receiver: 'grupo-telegram-negocio'
+      group_by: ['alertname']
+      repeat_interval: 2h
 
 receivers:
   - name: 'grupo-telegram-ti'
     telegram_configs:
-      - bot_token: 'TELEGRAM_BOT_TOKEN'
-        chat_id: TELEGRAM_CHAT_ID
+      - bot_token: '8009586858:AAGcCfkaGvozJrV5Cq9RdsEbj5Z7Jj4Nttc'
+        chat_id: -1003963429405
         parse_mode: 'HTML'
         message: |-
-          {{ range .Alerts }} {{ if eq .Status "firing" }}🚨 <b>FALLA DE INFRAESTRUCTURA</b>{{ else }}✅ <b>RECUPERADO</b>{{ end }}
-          <b>{{ .Annotations.summary }}</b>
-          <b>Alerta:</b> {{ .Labels.alertname }}
-          <b>Detalle:</b> {{ .Annotations.description }}
-          ---
+          {{ range .Alerts -}}
+          {{ if eq .Status "firing" -}}
+          {{ if eq .Labels.severity "fatal" }}🚨🚨 <b>CRÍTICO</b> 🚨🚨
+          {{ else if eq .Labels.severity "critical" }}🔴 <b>ALERTA CRÍTICA</b>
+          {{ else }}🟡 <b>ADVERTENCIA</b>
+          {{ end -}}
+          {{ else -}}
+          ✅ <b>RESUELTO</b>
+          {{ end -}}
+          ━━━━━━━━━━━━━━━━━━━━━━
+          {{ .Annotations.summary }}
+          ━━━━━━━━━━━━━━━━━━━━━━
+          📋 <b>Alerta:</b> <code>{{ .Labels.alertname }}</code>
+          {{ if .Labels.sucursal }}📍 <b>Sucursal:</b> {{ .Labels.sucursal }}
+          🌐 <b>Gateway:</b> <code>{{ .Labels.instance }}</code>
+          {{ else if .Labels.servidor }}🖥️ <b>Servidor:</b> {{ .Labels.servidor }}
+          🌐 <b>IP:</b> <code>{{ .Labels.instance }}</code>
+          {{ else if .Labels.datos }}🖥️ <b>Host:</b> {{ .Labels.datos }}
+          {{ end -}}
+          {{ if .Annotations.valor }}📊 <b>Valor:</b> {{ .Annotations.valor }}
+          {{ end -}}
+          🕐 <b>Desde:</b> {{ .StartsAt.Format "02/01 15:04" }} UTC
+          {{ if eq .Status "resolved" }}🕐 <b>Resuelto:</b> {{ .EndsAt.Format "02/01 15:04" }} UTC
+          {{ end -}}
+          ━━━━━━━━━━━━━━━━━━━━━━
+          📝 {{ .Annotations.description }}
           {{ end }}
 
   - name: 'grupo-telegram-negocio'
     telegram_configs:
-      - bot_token: 'TELEGRAM_BOT_TOKEN'
-        chat_id: TELEGRAM_CHAT_ID
+      - bot_token: '8658431753:AAH-LLnqEyC4ZkoLwCpmdUFDmWYZ65dpL68'
+        chat_id: -5009340328
         parse_mode: 'HTML'
         message: |-
-          {{ range .Alerts }} {{ if eq .Status "firing" }}⚠️ <b>ALERTA TOYOTA</b>{{ else }}✅ <b>SITUACIÓN NORMALIZADA</b>{{ end }}
-          <b>{{ .Annotations.summary }}</b>
-          <b>Detalle:</b> {{ .Annotations.description }}
-          ---
+          {{ range .Alerts -}}
+          {{ if eq .Status "firing" -}}
+          ⚠️ <b>ALERTA TOYOTA</b>
+          {{ else -}}
+          ✅ <b>SITUACIÓN NORMALIZADA</b>
+          {{ end -}}
+          ━━━━━━━━━━━━━━━━━━━━━━
+          {{ .Annotations.summary }}
+          ━━━━━━━━━━━━━━━━━━━━━━
+          📋 <b>Proceso:</b> <code>{{ .Labels.alertname }}</code>
+          {{ if .Annotations.valor }}📊 <b>Estado:</b> {{ .Annotations.valor }}
+          {{ end -}}
+          🕐 <b>Desde:</b> {{ .StartsAt.Format "02/01 15:04" }} UTC
+          {{ if eq .Status "resolved" }}🕐 <b>Resuelto:</b> {{ .EndsAt.Format "02/01 15:04" }} UTC
+          {{ end -}}
+          ━━━━━━━━━━━━━━━━━━━━━━
+          📝 {{ .Annotations.description }}
           {{ end }}
