@@ -94,3 +94,12 @@ scrape_configs:
     static_configs:
       - targets: ["10.56.6.49:8000"]
         labels: { app: "bot_toyota", area: "negocio" }
+# ==========================================================
+# --- ENVÍO DE DATOS A MIMIR ---
+# ==========================================================
+remote_write:
+  - url: http://10.56.6.18:9009/api/v1/push
+    queue_config:
+      max_samples_per_send: 1000
+      max_shards: 200
+      capacity: 2500
