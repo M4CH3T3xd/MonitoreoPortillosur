@@ -1,0 +1,76 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: 'grupo-telegram-ti'
+  group_by: ['alertname', 'instance']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+  routes:
+    - matchers:
+        - alertname=~"ErrorIntegracionSAP|RetrasoGestionComercial|ToyotaServicioCaido"
+      receiver: 'grupo-telegram-negocio'
+      group_by: ['alertname']
+      repeat_interval: 2h
+
+receivers:
+  - name: 'grupo-telegram-ti'
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TI}'
+        chat_id: -TELEGRAM_CHAT
+        parse_mode: 'HTML'
+        message: |-
+          {{ range .Alerts -}}
+          {{ if eq .Status "firing" -}}
+          {{ if eq .Labels.severity "fatal" }}🚨🚨 <b>CRÍTICO</b> 🚨🚨
+          {{ else if eq .Labels.severity "critical" }}🔴 <b>ALERTA CRÍTICA</b>
+          {{ else }}🟡 <b>ADVERTENCIA</b>
+          {{ end -}}
+          {{ else -}}
+          ✅ <b>RESUELTO</b>
+          {{ end -}}
+          ━━━━━━━━━━━━━━━━━━━━━━
+          {{ .Annotations.summary }}
+          ━━━━━━━━━━━━━━━━━━━━━━
+          📋 <b>Alerta:</b> <code>{{ .Labels.alertname }}</code>
+          {{ if .Labels.sucursal }}📍 <b>Sucursal:</b> {{ .Labels.sucursal }}
+          🌐 <b>Gateway:</b> <code>{{ .Labels.instance }}</code>
+          {{ else if .Labels.servidor }}🖥️ <b>Servidor:</b> {{ .Labels.servidor }}
+          🌐 <b>IP:</b> <code>{{ .Labels.instance }}</code>
+          {{ else if .Labels.datos }}🖥️ <b>Host:</b> {{ .Labels.datos }}
+          {{ end -}}
+          {{ if .Annotations.valor }}📊 <b>Valor:</b> {{ .Annotations.valor }}
+          {{ end -}}
+          🕐 <b>Desde:</b> {{ .StartsAt.Format "02/01 15:04" }} UTC
+          {{ if eq .Status "resolved" }}🕐 <b>Resuelto:</b> {{ .EndsAt.Format "02/01 15:04" }} UTC
+          {{ end -}}
+          ━━━━━━━━━━━━━━━━━━━━━━
+          📝 {{ .Annotations.description }}
+          {{ end }}
+
+  - name: 'grupo-telegram-negocio'
+    telegram_configs:
+      - bot_token: '${TEEGRAM_BOT_NEGOCIO}'
+        chat_id: -TELEGRAM_CHAT
+        parse_mode: 'HTML'
+        message: |-
+          {{ range .Alerts -}}
+          {{ if eq .Status "firing" -}}
+          ⚠️ <b>ALERTA TOYOTA</b>
+          {{ else -}}
+          ✅ <b>SITUACIÓN NORMALIZADA</b>
+          {{ end -}}
+          ━━━━━━━━━━━━━━━━━━━━━━
+          {{ .Annotations.summary }}
+          ━━━━━━━━━━━━━━━━━━━━━━
+          📋 <b>Proceso:</b> <code>{{ .Labels.alertname }}</code>
+          {{ if .Annotations.valor }}📊 <b>Estado:</b> {{ .Annotations.valor }}
+          {{ end -}}
+          🕐 <b>Desde:</b> {{ .StartsAt.Format "02/01 15:04" }} UTC
+          {{ if eq .Status "resolved" }}🕐 <b>Resuelto:</b> {{ .EndsAt.Format "02/01 15:04" }} UTC
+          {{ end -}}
+          ━━━━━━━━━━━━━━━━━━━━━━
+          📝 {{ .Annotations.description }}
+          {{ end }}
